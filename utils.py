@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 from dateutil.parser import parse
+import math
 
 def is_date(string, fuzzy=False):
     """
@@ -15,3 +16,16 @@ def is_date(string, fuzzy=False):
 
     except ValueError:
         return False
+    
+def tf(term_frequency):
+    if term_frequency == 0:
+        return 0
+    return float(1 + math.log(term_frequency, 10))
+
+
+def idf(N, doc_frequency):
+    if doc_frequency == 0:
+        return 0
+    return float(math.log(float(N / doc_frequency), 10))
+
+

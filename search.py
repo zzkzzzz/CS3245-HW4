@@ -2,7 +2,6 @@
 import os
 import nltk
 import sys
-import math
 import getopt
 import json
 import numpy as np
@@ -24,6 +23,17 @@ class Query:
         self.is_phrase = is_phrase
         self.tokens = tokens
         self.counts = counts
+        self.query_weights = 0
+        self.relevant_docs = []
+        
+class Posting:
+    
+    def __init__(self, term, tf , docs):
+        self.term = term
+        self.tf = tf
+        # 
+        # doc_id: postions => {1:[1,3,6], 2:[12], 5:[9,19]}
+        self.docs = docs
 
 
 def usage():
@@ -60,32 +70,42 @@ def run_search(dict_file, postings_file, queries_file, results_file):
         
         # query = refine_query(parsed_queries)
         
+        result = []
         # result = evaluate_query(parsed_queries , postings_file, relevant_docs, posting_file, N)
             
         # write result into file
-        result = []
         result = map(str, result)
         result = ' '.join(result)
         fout.write(result)
 
 def refine_query(query):
-    # 1. query expansion
-    # 2. blind feedback
+    # 1. spell correction
+    # 2. expand query
+    # 3. pseudo relevant feedback 
     
     return []
 
 def evaluate_query(queries , postings_file, relevant_docs, posting_file, N):
-    # pharse query 
-    # text query
-    
-    # 1. Search Title
-    # 2. Search Date_Posted
-    # 3. Search Court
-    # 4. Search Content
-    
-    # 5. calculate the score for each document
-    # 6. rank docs by scores
-    
+    # 2.1 get all relevant documents for each subquery
+    # for subquery in queries
+    #     if subquery is phrase query
+    #         docs = SearchPhraseQueryOnContent(query) 
+    #     else subquery is free text query
+    #         docs = SearchFreeTextQueryOnContent(query) HW3
+        
+    # 2.2 intersection
+
+    # 2.3 caculate the score
+    # for subquery in queries
+    #     for each token t in subquery
+    #         doc_weight = posting_list[t].tf
+    #         scores[doc_id] += subquery.query_weight * doc_weight
+
+        
+    # for each doc_id in scores
+    #     scores[doc_id]=scores[doc_id]/Length(doc_id) 
+
+    # 2.4 rank  
     return []
     
     
@@ -158,16 +178,7 @@ def get_postings(token, postings_file):
     return [], {}
 
     
-def tf(term_frequency):
-    if term_frequency == 0:
-        return 0
-    return float(1 + math.log(term_frequency, 10))
 
-
-def idf(N, doc_frequency):
-    if doc_frequency == 0:
-        return 0
-    return float(math.log(float(N / doc_frequency), 10))
 
 
 dictionary_file = postings_file = file_of_queries = output_file_of_results = None
