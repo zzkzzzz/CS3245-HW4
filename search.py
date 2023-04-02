@@ -3,10 +3,12 @@ import os
 import nltk
 import sys
 import getopt
-import json
 import numpy as np
 from nltk.stem.porter import PorterStemmer
-
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 os.environ['MKL_NUM_THREADS'] = '1'
 os.environ['NUMEXPR_NUM_THREADS'] = '1'
 os.environ['OMP_NUM_THREADS'] = '1'
@@ -28,12 +30,11 @@ class Query:
         
 class Posting:
     
-    def __init__(self, term, tf , docs):
+    def __init__(self, term, docs):
         self.term = term
-        self.tf = tf
-        # 
-        # doc_id: postions => {1:[1,3,6], 2:[12], 5:[9,19]}
+        # doc_id: postions => {1:[[tf][1,3,6]], 5:[[tf],[9,19]]}
         self.docs = docs
+    
 
 
 def usage():
@@ -52,9 +53,9 @@ def run_search(dict_file, postings_file, queries_file, results_file):
         open(dict_file, mode="rb") as dictionary_file, \
         open(postings_file, mode="rb") as postings_file:
             
-        # load dictionary and length into memory
-        DICTIONARY = json.load(dictionary_file)
-        
+        global DICTIONARY
+        DICTIONARY = pickle.load(dictionary_file)
+       
         query_str = ""
         relevant_docs = []
         
@@ -166,16 +167,19 @@ def tokenize_query(query):
 
 def get_postings(token, postings_file):
     """
-    Get posting list and tfs for given token.
+    Get posting list for given token.
 
     Args:
         token (str): A token searching for.
         postings_file (BufferedReader): File reader for posting file.
 
     Returns:
-        Posting list and tfs for given token.
+        Posting list for given token.
     """
-    return [], {}
+
+    postings_file.seek(DICTIONARY["content"][token][1])
+
+    return Posting(token,pickle.load(postings_file))
 
     
 
