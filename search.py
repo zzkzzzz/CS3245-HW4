@@ -32,7 +32,7 @@ class Posting:
     
     def __init__(self, term, docs):
         self.term = term
-        # doc_id: postions => {1:[[tf][1,3,6]], 5:[[tf],[9,19]]}
+        # doc_id: postions => {1:[tf,[1,3,6]], 5:[tf,[9,19]]}
         self.docs = docs
     
 
@@ -86,28 +86,177 @@ def refine_query(query):
     
     return []
 
+def search_two_word_phrase(words):
+    result = []
+    idx1, idx2 = 0, 0
+    # get posting object
+    postings_lst1 = get_postings(words[0])
+    postings_lst2 = get_postings(words[1])
+    # get doc IDs in posting list
+    docs1 = sorted(postings_lst1.docs.keys())
+    docs2 = sorted(postings_lst2.docs.keys())
+
+    while idx1 < len(docs1) and idx2 < len(docs2):
+        if docs1[idx1] == docs2[idx2]:
+            # words appearing in the same document, check position
+            pos1 = postings_lst1.docs[docs1[idx1]][1]
+            pos2 = postings_lst2.docs[docs2[idx2]][1]
+            # check if two word1 immediately comes before word2
+            i, j = 0, 0
+            while i < len(pos1) and j < len(pos2):
+                if pos1[i] == pos2[j] - 1:
+                    # phrase found
+                    result.append(docs1[idx1])
+                    break
+                elif pos1[i] >= pos2[j]:
+                    j += 1
+                else:
+                    i += 1
+        elif docs1[idx1] < docs2[idx2]:
+            idx1 += 1
+        else:
+            idx2 += 1
+    return result
+
+def search_three_word_phrase(words):
+    result = []
+    idx1, idx2, idx3 = 0, 0, 0
+    # get posting object
+    postings_lst1 = get_postings(words[0])
+    postings_lst2 = get_postings(words[1])
+    postings_lst3 = get_postings(words[2])
+    # get doc IDs in posting list
+    docs1 = sorted(postings_lst1.docs.keys())
+    docs2 = sorted(postings_lst2.docs.keys())
+    docs3 = sorted(postings_lst3.docs.keys())
+
+    while idx1 < len(docs1) and idx2 < len(docs2) and idx3 < len(docs3):
+        # all 3 words appearing in the same doc
+        if docs1[idx1] == docs2[idx2] and docs2[idx2] == docs3[idx3]:
+            # check if the 3 words appears consecutively
+            pos1 = postings_lst1.docs[docs1[idx1]][1]
+            pos2 = postings_lst2.docs[docs2[idx2]][1]
+            pos3 = postings_lst3.docs[docs3[idx3]][1]
+
+            i, j, k = 0, 0, 0
+            while i < len(pos1) and j < len(pos2) and k < len(pos3):
+                if pos1[i] == pos2[j] - 1 and pos1[i] == pos3[k] - 2:
+                    result.append(docs1[idx1])
+                    break
+                elif pos1[i] >= pos2[j]:
+                    j += 1
+                elif pos1[i] >= pos3[k] or pos2[j] >= pos3[k]:
+                    # after incrementing 2nd position list have to check 
+                    # if both 1st and 2nd position is before 3rd position
+                    k += 1
+                else:
+                    i += 1 
+            pass
+        elif docs1[idx1] <= docs2[idx2] and docs1[idx1] <= docs3[idx3]:
+            # docID1 <= docID 2 and docID1 <= docID 3
+            idx1 += 1
+        elif docs1[idx1] >= docs2[idx2] and docs2[idx2] <= docs3[idx3]:
+            # docID1 >= docID 2 and docID2 <= docID 3
+            idx2 += 1
+        else:
+            idx3 += 1
+    return result
+
+def search_phrase_on_content(query):
+    """
+    TODO positional search
+    self.query = query
+    self.is_phrase = is_phrase
+    self.tokens = tokens
+    self.counts = counts
+    self.query_weights = 0
+    self.relevant_docs = []
+    """
+    words = query.tokens
+    num_words = len(words)
+    if num_words == 1:
+        postings_lst = get_postings(words[0])
+        return postings_lst.docs.keys()
+    elif num_words == 2:
+        return search_two_word_phrase(words)
+    elif num_words == 3:
+        return search_three_word_phrase(words)
+    return []
+
+def score_documents(query):
+    scores = {}
+    tokens = query.tokens
+    weights = query.query_weights
+    for token in tokens:
+        if token not in DICTIONARY:
+            continue
+        postings_lst = get_postings(token).docs
+        docs = postings_lst.keys()
+        query_weight = weights[token]
+        for docID in docs:
+            doc_weight = postings_lst[docID][0]
+            if docID in scores:
+                scores[docID] += query_weight * doc_weight
+            else:
+                scores[docID] = query_weight * doc_weight
+    return sorted(scores.keys(), key=lambda x:x[1])
+
 def evaluate_query(queries , postings_file, relevant_docs, posting_file, N):
+    """
+    No need relevant_docs here?? since it is given along with query as a kind of feedback, would be used for query refinement
+    """
     # 2.1 get all relevant documents for each subquery
     # for subquery in queries
     #     if subquery is phrase query
     #         docs = SearchPhraseQueryOnContent(query) 
     #     else subquery is free text query
     #         docs = SearchFreeTextQueryOnContent(query) HW3
-        
+    candidate_docs = [] # stores relevant document IDs for free text query and related documents IDs for phrase query
+    for subquery in queries:
+        if subquery.is_phrase:
+            docs = search_phrase_on_content(subquery)
+        else:
+            docs = score_documents(subquery) # homework 3
+        candidate_docs.append(docs)
+
     # 2.2 intersection
+    candidate_docs = [set(x) for x in candidate_docs]
+    final_docs = list(set.intersection(*candidate_docs))
 
     # 2.3 caculate the score
     # for subquery in queries
     #     for each token t in subquery
     #         doc_weight = posting_list[t].tf
     #         scores[doc_id] += subquery.query_weight * doc_weight
-
+    scores = {}
+    for subquery in queries:
+        tokens = subquery.tokens
+        weights = subquery.query_weights
+        for token in tokens:
+            if token not in DICTIONARY:
+                continue
+            postings_lst = get_postings(token).docs
+            docs = postings_lst.keys()
+            query_weight = weights[token]
+            for docID in docs:
+                doc_weight = postings_lst[docID][0]
+                if docID in scores:
+                    scores[docID] += query_weight * doc_weight
+                else:
+                    scores[docID] = query_weight * doc_weight
         
     # for each doc_id in scores
     #     scores[doc_id]=scores[doc_id]/Length(doc_id) 
+    # normalize
+    """
+    Don't need the normalize step? already calcuated when constructing posting list?
+    """
+    # for doc_id in scores:
+    #     scores[doc_id] = scores[doc_id]/LENGTH[str(doc_id)]
 
-    # 2.4 rank  
-    return []
+    # 2.4 rank
+    # sort doc id by scores
+    return sorted(scores.keys(), key=lambda x:x[1])
     
     
 def parse_query(query):
