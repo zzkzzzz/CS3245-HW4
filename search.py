@@ -5,6 +5,9 @@ import sys
 import getopt
 import numpy as np
 from nltk.stem.porter import PorterStemmer
+from utils import idf, tf
+
+
 try:
     import cPickle as pickle
 except ImportError:
@@ -17,6 +20,7 @@ os.environ['OPENBLAS_NUM_THREADS'] = '1'
 STEMMER = PorterStemmer()
 DICTIONARY = {}
 
+N = 17000 # replace with number of documents in collection
 
 class Query:
 
@@ -25,7 +29,7 @@ class Query:
         self.is_phrase = is_phrase
         self.tokens = tokens
         self.counts = counts
-        self.query_weights = 0
+        self.query_weights = {}
         self.relevant_docs = []
         
 class Posting:
@@ -69,8 +73,6 @@ def run_search(dict_file, postings_file, queries_file, results_file):
 
         parsed_queries = parse_query(query_str)  
         
-        # query = refine_query(parsed_queries)
-        
         result = []
         # result = evaluate_query(parsed_queries , postings_file, relevant_docs, posting_file, N)
             
@@ -79,10 +81,11 @@ def run_search(dict_file, postings_file, queries_file, results_file):
         result = ' '.join(result)
         fout.write(result)
 
-def refine_query(query):
+def refine_query(queries):
     # 1. spell correction
     # 2. expand query
     # 3. pseudo relevant feedback 
+   
     
     return []
 
@@ -280,9 +283,18 @@ def parse_query(query):
         else:
             tokens, count = tokenize_query(subquery)
             queries.append(Query(subquery, tokens, count, False))
-
+            
+    caculate_query_weight(queries)
+    
     return queries
 
+def caculate_query_weight(queries):
+    for query in queries:
+        for token in query.counts.keys():
+            if token not in DICTIONARY["content"]:
+                continue
+            query.query_weights[token] = tf(query.counts[token]) * idf(N, DICTIONARY["content"][token][0])
+    
 
 def tokenize_query(query):
     """
