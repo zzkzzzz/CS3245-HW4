@@ -11,16 +11,48 @@ import json
 import math
 import numpy as np
 from nltk.stem.porter import PorterStemmer
+from nltk.tokenize import sent_tokenize, word_tokenize
 from os import remove
 import csv
 import pickle
-
+import re
+import string
+from datetime import datetime
 csv.field_size_limit(500 * 1024 * 1024)
 
 
 # python index.py -i dataset.csv -d dictionary.txt -p postings.txt
 
-
+def deal_zone(zone, posidex, doc_id1):
+	# deal with title
+	doc_termFreq = {}   # like: {term: freq}
+	doc_termPositions = {}  # like: {term: [1, 2, 3, 4]}
+	posi_index = posidex.copy()
+	for posi, term in enumerate(zone):
+		if term not in doc_termFreq:
+			doc_termFreq[term] = 1
+			doc_termPositions[term] = [posi]
+		else:
+			doc_termFreq[term] = doc_termFreq[term] + 1
+			doc_termPositions[term].append(posi)
+	# log tf
+	for term, tf in doc_termFreq.items():
+		doc_termFreq[term] = logg_tf(tf)
+	# doc_length
+	sum = 0
+	for term, tf in doc_termFreq.items():
+		sum += math.pow(tf, 2)
+	sum = math.sqrt(sum)
+	# positional_index: term, doc_id: [tf, positions]
+	for term, log_tf in doc_termFreq.items():
+		if term not in posi_index:
+			posi_index[term] = {doc_id1: [log_tf/sum, doc_termPositions[term]]}
+		else:
+			posi_index[term][doc_id1] = [log_tf/sum, doc_termPositions[term]]
+	
+	return posi_index
+			
+			
 def usage():
 	print("usage: " + sys.argv[0] + " -i directory-of-documents -d dictionary-file -p postings-file")
 	
@@ -30,16 +62,23 @@ def logg_tf(tf):
 	else:
 		return 0
 	
-
 def preprocess(text):
 	stemmer = PorterStemmer() # initialize stemmer
 	sentences = nltk.sent_tokenize(text)
 	tokenized_sent = [nltk.word_tokenize(s) for s in sentences] # still array of tokenized sentences
 	tokens = [word for sent in tokenized_sent for word in sent] # flatten array
-	
+	tok = []
 	for token in tokens:
+		if len(token) != 0:
+			if token[0] in string.punctuation:
+				token = token[1:]
+		if len(token) != 0:
+			if token[-1] in string.punctuation:
+				token = token[:-1]
 		token = stemmer.stem(token).lower() #stemming and case-folding
-	return tokens
+		if token not in string.punctuation:
+				tok.append(token)
+	return tok
 
 def build_index(in_csv, out_dict, out_postings):
 	"""
@@ -52,137 +91,33 @@ def build_index(in_csv, out_dict, out_postings):
 	positional_index['content'] = {}
 	positional_index['date'] = {}
 	positional_index['court'] = {}
-	
 	with open(in_csv, newline='') as f:
 		reader = csv.reader(f, dialect='excel')
-		doc_num = 1
-		#print(reader.__sizeof__())
-		#l =[]
-		#for i in reader:
-			#l.append(i)
-		#print(len(l))
-		#exit()
+		doc_num = 0
+		
 		for i in reader:
+			doc_num += 1
 			if i[0] == 'document_id':
 				continue
-			
+			if doc_num > 5000:
+				break
 			doc_id, date, title, content, court = i[0], [i[3]], preprocess(i[1]), preprocess(i[2]), preprocess(i[4])
 			
-			#print(doc_num)
-			#print(i)
-			#print('index title...')
-			# deal with title
-			doc_termFreq = {}   # like: {term: freq}
-			doc_termPositions = {}  # like: {term: [1, 2, 3, 4]}
-			for posi, term in enumerate(title):
-				if term not in doc_termFreq:
-					doc_termFreq[term] = 1
-					doc_termPositions[term] = [posi]
-				else:
-					doc_termFreq[term] = doc_termFreq[term] + 1
-					doc_termPositions[term].append(posi)
-			# log tf
-			for term, tf in doc_termFreq.items():
-				doc_termFreq[term] = logg_tf(tf)
-			# doc_length
-			sum = 0
-			for term, tf in doc_termFreq.items():
-				sum += math.pow(tf, 2)
-			sum = math.sqrt(sum)
-			# positional_index: term, doc_id: [tf, positions]
-			for term, log_tf in doc_termFreq.items():
-				if term not in positional_index['title']:
-					positional_index['title'][term] = {doc_id: [log_tf/sum, doc_termPositions[term]]}
-				else:
-					positional_index['title'][term][doc_id] = [log_tf/sum, doc_termPositions[term]]
-					
-			#print('index content...')
-			# deal with content
-			doc_termFreq = {}   # like: {term: freq}
-			doc_termPositions = {}  # like: {term: [1, 2, 3, 4]}
-			for posi, term in enumerate(content):
-				if term not in doc_termFreq:
-					doc_termFreq[term] = 1
-					doc_termPositions[term] = [posi]
-				else:
-					doc_termFreq[term] = doc_termFreq[term] + 1
-					doc_termPositions[term].append(posi)
-			# log tf
-			for term, tf in doc_termFreq.items():
-				doc_termFreq[term] = logg_tf(tf)
-			# doc_length
-			sum = 0
-			for term, tf in doc_termFreq.items():
-				sum += math.pow(tf, 2)
-			sum = math.sqrt(sum)
-			# positional_index: term, doc_id: [tf, positions]
-			for term, log_tf in doc_termFreq.items():
-				if term not in positional_index['content']:
-					positional_index['content'][term] = {doc_id: [log_tf/sum, doc_termPositions[term]]}
-				else:
-					positional_index['content'][term][doc_id] = [log_tf/sum, doc_termPositions[term]]
+			positional_index['title'] = deal_zone(title, positional_index['title'], doc_id)
+			positional_index['content'] = deal_zone(content, positional_index['content'], doc_id)
+			positional_index['date'] = deal_zone(date, positional_index['date'], doc_id)
+			positional_index['court'] = deal_zone(court, positional_index['court'], doc_id)
 			
-			#print('index date...')
-			# deal with date
-			doc_termFreq = {}   # like: {term: freq}
-			doc_termPositions = {}  # like: {term: [1, 2, 3, 4]}
-			for posi, term in enumerate(date):
-				if term not in doc_termFreq:
-					doc_termFreq[term] = 1
-					doc_termPositions[term] = [posi]
-				else:
-					doc_termFreq[term] = doc_termFreq[term] + 1
-					doc_termPositions[term].append(posi)
-			# log tf
-			for term, tf in doc_termFreq.items():
-				doc_termFreq[term] = logg_tf(tf)
-			# doc_length
-			sum = 0
-			for term, tf in doc_termFreq.items():
-				sum += math.pow(tf, 2)
-			sum = math.sqrt(sum)
-			# positional_index: term, doc_id: [tf, positions]
-			for term, log_tf in doc_termFreq.items():
-				if term not in positional_index['date']:
-					positional_index['date'][term] = {doc_id: [log_tf/sum, doc_termPositions[term]]}
-				else:
-					positional_index['date'][term][doc_id] = [log_tf/sum, doc_termPositions[term]]
-			
-			#print('index court...')
-			# deal with court
-			doc_termFreq = {}   # like: {term: freq}
-			doc_termPositions = {}  # like: {term: [1, 2, 3, 4]}
-			for posi, term in enumerate(court):
-				if term not in doc_termFreq:
-					doc_termFreq[term] = 1
-					doc_termPositions[term] = [posi]
-				else:
-					doc_termFreq[term] = doc_termFreq[term] + 1
-					doc_termPositions[term].append(posi)
-			# log tf
-			for term, tf in doc_termFreq.items():
-				doc_termFreq[term] = logg_tf(tf)
-			# doc_length
-			sum = 0
-			for term, tf in doc_termFreq.items():
-				sum += math.pow(tf, 2)
-			sum = math.sqrt(sum)
-			# positional_index: term, doc_id: [tf, positions]
-			for term, log_tf in doc_termFreq.items():
-				if term not in positional_index['court']:
-					positional_index['court'][term] = {doc_id: [log_tf/sum, doc_termPositions[term]]}
-				else:
-					positional_index['court'][term][doc_id] = [log_tf/sum, doc_termPositions[term]]
 			if doc_num % 100 == 1:
 				print(doc_num)
-			doc_num += 1
-					
+	
 	print('writing to file....')
 	dictionary = {}
 	dictionary['title'] = {}
 	dictionary['content'] = {}
 	dictionary['date'] = {}
 	dictionary['court'] = {}
+	dictionary[''] = doc_num
 	postings = b''
 	offset = 0
 	
@@ -221,6 +156,7 @@ def build_index(in_csv, out_dict, out_postings):
 		dictionary['court'][term] = (len(posting), offset)
 		offset += pick_length
 		postings += pik_posting
+	
 	
 	print('writing...')
 	
