@@ -5,6 +5,7 @@ import sys
 import getopt
 import numpy as np
 from nltk.stem.porter import PorterStemmer
+from refine import correct_query, expand_query
 from utils import idf, tf
 
 
@@ -70,6 +71,8 @@ def run_search(dict_file, postings_file, queries_file, results_file):
                 first_line = False
             else:
                 relevant_docs.append(int(line))
+                
+        refined_query = refine_query(query_str)
 
         parsed_queries = parse_query(query_str)  
         
@@ -81,13 +84,11 @@ def run_search(dict_file, postings_file, queries_file, results_file):
         result = ' '.join(result)
         fout.write(result)
 
-def refine_query(queries):
-    # 1. spell correction
-    # 2. expand query
-    # 3. pseudo relevant feedback 
-   
+def refine_query(query):
+    query = correct_query(query)
+    query = expand_query(query)
     
-    return []
+    return query
 
 def search_two_word_phrase(words):
     result = []
