@@ -71,8 +71,6 @@ def run_search(dict_file, postings_file, queries_file, results_file):
                 first_line = False
             else:
                 relevant_docs.append(int(line))
-                
-        refined_query = refine_query(query_str)
 
         parsed_queries = parse_query(query_str)  
         
@@ -278,10 +276,14 @@ def parse_query(query):
     subqueries = query.split('AND')
     for subquery in subqueries:
         subquery = subquery.strip()
+        # phrase query is surrounded by double quotes
+        # no query expansion for phrase query
         if subquery[0] == '"' and subquery[-1] == '"':
             tokens, count = tokenize_query(subquery[1:-1])
             queries.append(Query(subquery[1:-1], tokens, count, True))
+        # free text query
         else:
+            subquery = refine_query(subquery)
             tokens, count = tokenize_query(subquery)
             queries.append(Query(subquery, tokens, count, False))
             
