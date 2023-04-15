@@ -59,13 +59,13 @@ def run_search(dict_file, postings_file, queries_file, results_file):
     with open(queries_file, 'r') as fin, \
         open(results_file, 'w') as fout, \
         open(dict_file, mode="rb") as dictionary_file, \
-        open(postings_file, mode="rb") as postings_file:
+        open(postings_file, mode="rb") as postings_files:
             
         global DICTIONARY
         DICTIONARY = pickle.load(dictionary_file)
 
         global POSTINGS
-        POSTINGS = postings_file
+        POSTINGS = postings_files
        
         query_str = ""
         relevant_docs = []
@@ -120,6 +120,8 @@ def search_two_word_phrase(words):
                     j += 1
                 else:
                     i += 1
+            idx1 += 1
+            idx2 += 1
         elif docs1[idx1] < docs2[idx2]:
             idx1 += 1
         else:
@@ -198,6 +200,7 @@ def score_documents(query):
     for token in tokens:
         if token not in DICTIONARY['content']:
             continue
+        # print(token)
         postings_lst = get_postings(token, POSTINGS).docs
         docs = postings_lst.keys()
         query_weight = weights[token]
@@ -252,9 +255,6 @@ def evaluate_query(queries, relevant_docs, N):
                     scores[docID] += query_weight * doc_weight
                 else:
                     scores[docID] = query_weight * doc_weight
-        
-    # for each doc_id in scores
-    #     scores[doc_id]=scores[doc_id]/Length(doc_id) 
     # normalize
     """
     Don't need the normalize step? already calcuated when constructing posting list?
@@ -264,7 +264,8 @@ def evaluate_query(queries, relevant_docs, N):
 
     # 2.4 rank
     # sort doc id by scores
-    return sorted(scores.keys(), key=lambda x:x[1])
+    # print(sorted(scores.items(), key=lambda x:x[1], reverse=True))
+    return sorted(scores, key=scores.get, reverse=True)
     
     
 def parse_query(query):
@@ -289,7 +290,7 @@ def parse_query(query):
             queries.append(Query(subquery[1:-1], tokens, count, True))
         # free text query
         else:
-            subquery = refine_query(subquery)
+            # subquery = refine_query(subquery)
             tokens, count = tokenize_query(subquery)
             queries.append(Query(subquery, tokens, count, False))
             
