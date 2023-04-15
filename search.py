@@ -264,8 +264,6 @@ def evaluate_query(queries, relevant_docs, N):
 
     # 2.4 rank
     # sort doc id by scores
-    print(get_postings('call', POSTINGS).docs)
-    print("6807771" in get_postings('call', POSTINGS).docs)
     return sorted(scores.keys(), key=lambda x:x[1])
     
     
