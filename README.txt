@@ -37,15 +37,17 @@ the relevance of the search results.
 
 1.3 Apply relevance feedback by apply Rocchio to improve the performance of a search engine 
 
-- The function pseudo_feedback applies the Rocchio algorithm to the query to improve its accuracy by using the relevant documents. 
-The Rocchio algorithm involves multiplying the original query vector by a constant alpha, adding a vector composed of 
-the average of the relevant documents' vectors weighted by a constant beta.
+- The function pseudo_feedback applies the Rocchio algorithm to the query to improve its accuracy 
+by using the relevant documents. The Rocchio algorithm involves multiplying the original query vector 
+by a constant alpha, adding a vector composed of the average of the relevant documents' vectors weighted 
+by a constant beta.
 
-- In our implementation, the algorithm is applied to each subquery in the given query. For each subquery, the relevant document 
-vectors are obtained from the postings file and used to calculate the new query vector. The original query vector is 
-multiplied by alpha, and the relevant document vector is normalized by the number of relevant documents and weighted by beta. 
-The resulting vector is then added to the original query vector to produce the new query vector. 
-Finally, the resulting query vector is returned.
+- In our implementation, the algorithm is applied to each subquery in the given query. For each 
+subquery, the relevant document  vectors are obtained from the postings file and used to calculate 
+the new query vector. The original query vector is  multiplied by alpha, and the relevant document 
+vector is normalized by the number of relevant documents and weighted by beta. The resulting vector 
+is then added to the original query vector to produce the new query vector. Finally, the resulting 
+query vector is returned.
 
 
 2. Query evaluation
