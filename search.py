@@ -377,6 +377,8 @@ def get_postings(token, postings_file):
     Returns:
         Posting list for given token.
     """
+    if token not in DICTIONARY['content']:
+        return Posting(token, {})
 
     postings_file.seek(DICTIONARY["content"][token][1])
 
