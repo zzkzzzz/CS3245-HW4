@@ -9,14 +9,18 @@ def correct_query(query):
         corrected_query.append(str(corrected_word))
     return ' '.join(corrected_query)
 
+
 def expand_query(query, num_words=2):
     expanded_query = []
     for word in query.split():
         synsets = wordnet.synsets(word)
+        if len(synsets) == 0:
+            return query
         top_words = get_top_words(synsets, num_words)
         expanded_query.extend(top_words)
         
     return ' '.join(expanded_query)
+
 
 # helper function to get top words from synsets
 def get_top_words(synsets, num_words=3):
@@ -35,7 +39,7 @@ def get_top_words(synsets, num_words=3):
     
     return top_words
 
-def pseudo_feedback():
-    return "hello world"
 
+
+   
         

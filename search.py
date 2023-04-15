@@ -80,6 +80,8 @@ def run_search(dict_file, postings_file, queries_file, results_file):
 
         parsed_queries = parse_query(query_str)  
         
+        pseudo_feedback(parsed_queries, DICTIONARY["content"], postings_file, relevant_docs)
+        
         result = []
         # result = evaluate_query(parsed_queries , postings_file, relevant_docs, posting_file, N)
         result = evaluate_query(parsed_queries, relevant_docs, N)
@@ -334,6 +336,35 @@ def tokenize_query(query):
 
     return result, count
 
+def pseudo_feedback(query, dictionary, postings_file, relevant_docs):
+    alpha = 0.8
+    beta = 0.2
+    
+    for subquery in query:
+        terms = subquery.counts
+        doc_vectors = {}
+        # get the doc vectors
+        for term in terms:
+            if term not in dictionary:
+                continue
+            
+            doc_vectors[term]=[]
+            postings_list = get_postings(term, postings_file)
+            # postings = postings_list.docs
+            # weights = postings_list.
+            for doc_id in postings_list.docs:
+                if int(doc_id) not in relevant_docs:
+                    continue
+                doc_weight = postings_list.docs[doc_id][0]
+                doc_vectors[term].append(doc_weight)
+
+        # applay rocchio algorithm
+        for term in terms:
+            if term not in dictionary:
+                continue
+            subquery.query_weights[term] *= alpha
+            doc_vector = np.linalg.norm(doc_vectors[term])/len(relevant_docs)*beta
+            subquery.query_weights[term] += doc_vector
 
 def get_postings(token, postings_file):
     """
