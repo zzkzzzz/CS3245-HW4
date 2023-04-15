@@ -100,8 +100,8 @@ def search_two_word_phrase(words):
     result = []
     idx1, idx2 = 0, 0
     # get posting object
-    postings_lst1 = get_postings(words[0])
-    postings_lst2 = get_postings(words[1])
+    postings_lst1 = get_postings(words[0], POSTINGS)
+    postings_lst2 = get_postings(words[1], POSTINGS)
     # get doc IDs in posting list
     docs1 = sorted(postings_lst1.docs.keys())
     docs2 = sorted(postings_lst2.docs.keys())
@@ -132,9 +132,9 @@ def search_three_word_phrase(words):
     result = []
     idx1, idx2, idx3 = 0, 0, 0
     # get posting object
-    postings_lst1 = get_postings(words[0])
-    postings_lst2 = get_postings(words[1])
-    postings_lst3 = get_postings(words[2])
+    postings_lst1 = get_postings(words[0], POSTINGS)
+    postings_lst2 = get_postings(words[1], POSTINGS)
+    postings_lst3 = get_postings(words[2], POSTINGS)
     # get doc IDs in posting list
     docs1 = sorted(postings_lst1.docs.keys())
     docs2 = sorted(postings_lst2.docs.keys())
@@ -185,7 +185,7 @@ def search_phrase_on_content(query):
     words = query.tokens
     num_words = len(words)
     if num_words == 1:
-        postings_lst = get_postings(words[0])
+        postings_lst = get_postings(words[0], POSTINGS)
         return postings_lst.docs.keys()
     elif num_words == 2:
         return search_two_word_phrase(words)
