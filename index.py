@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import os
 os.environ['MKL_NUM_THREADS'] = '1'
 os.environ['NUMEXPR_NUM_THREADS'] = '1'
@@ -17,6 +18,7 @@ import csv
 import pickle
 import re
 import string
+import time
 from datetime import datetime
 csv.field_size_limit(500 * 1024 * 1024)
 
@@ -49,9 +51,9 @@ def deal_zone(zone, posidex, doc_id1):
 			posi_index[term] = {doc_id1: [log_tf/sum, doc_termPositions[term]]}
 		else:
 			posi_index[term][doc_id1] = [log_tf/sum, doc_termPositions[term]]
-	
-	return posi_index
 			
+	return posi_index
+
 			
 def usage():
 	print("usage: " + sys.argv[0] + " -i directory-of-documents -d dictionary-file -p postings-file")
@@ -91,6 +93,7 @@ def build_index(in_csv, out_dict, out_postings):
 	positional_index['content'] = {}
 	positional_index['date'] = {}
 	positional_index['court'] = {}
+	start = time.process_time()
 	with open(in_csv, newline='') as f:
 		reader = csv.reader(f, dialect='excel')
 		doc_num = 0
@@ -99,8 +102,8 @@ def build_index(in_csv, out_dict, out_postings):
 			doc_num += 1
 			if i[0] == 'document_id':
 				continue
-			if doc_num > 5000:
-				break
+			# if doc_num > 200:
+			# 	break
 			doc_id, date, title, content, court = i[0], [i[3]], preprocess(i[1]), preprocess(i[2]), preprocess(i[4])
 			
 			positional_index['title'] = deal_zone(title, positional_index['title'], doc_id)
@@ -109,8 +112,9 @@ def build_index(in_csv, out_dict, out_postings):
 			positional_index['court'] = deal_zone(court, positional_index['court'], doc_id)
 			
 			if doc_num % 100 == 1:
+				print('Time taken till now: ' + str(time.process_time() - start) + 's')
 				print(doc_num)
-	
+				
 	print('writing to file....')
 	dictionary = {}
 	dictionary['title'] = {}
@@ -129,8 +133,11 @@ def build_index(in_csv, out_dict, out_postings):
 		dictionary['title'][term] = (len(posting), offset)
 		offset += pick_length
 		postings += pik_posting
-		
+	
 	print('post content...')
+	print(str(len(positional_index['content'].items())) + ' unique terms')
+	count = 0
+	start = time.process_time()
 	for term, posting in positional_index['content'].items():
 		pik_posting = pickle.dumps(posting)
 		pick_length = len(pik_posting)
@@ -138,7 +145,15 @@ def build_index(in_csv, out_dict, out_postings):
 		dictionary['content'][term] = (len(posting), offset)
 		offset += pick_length
 		postings += pik_posting
-	
+		#print(len(postings))
+		if (len(postings) > 10000000):
+			pos = open(out_postings, 'ab')
+			pos.write(postings)
+			postings = b''
+		if count %1000 == 0:
+			print(str(count) + " done in " + str(time.process_time()-start) + 's')
+		count += 1
+		
 	print('post date...')
 	for term, posting in positional_index['date'].items():
 		pik_posting = pickle.dumps(posting)
@@ -147,7 +162,7 @@ def build_index(in_csv, out_dict, out_postings):
 		dictionary['date'][term] = (len(posting), offset)
 		offset += pick_length
 		postings += pik_posting
-	
+		
 	print('post court...')
 	for term, posting in positional_index['court'].items():
 		pik_posting = pickle.dumps(posting)
@@ -156,19 +171,19 @@ def build_index(in_csv, out_dict, out_postings):
 		dictionary['court'][term] = (len(posting), offset)
 		offset += pick_length
 		postings += pik_posting
-	
-	
+		
+		
 	print('writing...')
 	
-	with open(out_postings, 'wb') as pos:
+	with open(out_postings, 'ab') as pos:
 		pos.write(postings)
 		
 	with open(out_dict, 'wb') as dic:
 		pickle.dump(dictionary, dic)
-	
-	print('done')
-
 		
+	print('done')
+	
+	
 input_directory = output_file_dictionary = output_file_postings = None
 
 try:
