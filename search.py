@@ -18,8 +18,11 @@ os.environ['NUMEXPR_NUM_THREADS'] = '1'
 os.environ['OMP_NUM_THREADS'] = '1'
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
 
+# python3.8 search.py -d dictionary.txt -p postings.txt -q queries/q1.txt  -o result.txt
+
 STEMMER = PorterStemmer()
 DICTIONARY = {}
+POSTINGS = None
 
 N = 17000 # replace with number of documents in collection
 
@@ -60,6 +63,9 @@ def run_search(dict_file, postings_file, queries_file, results_file):
             
         global DICTIONARY
         DICTIONARY = pickle.load(dictionary_file)
+
+        global POSTINGS
+        POSTINGS = postings_file
        
         query_str = ""
         relevant_docs = []
@@ -76,7 +82,7 @@ def run_search(dict_file, postings_file, queries_file, results_file):
         
         result = []
         # result = evaluate_query(parsed_queries , postings_file, relevant_docs, posting_file, N)
-            
+        result = evaluate_query(parsed_queries, relevant_docs, N)
         # write result into file
         result = map(str, result)
         result = ' '.join(result)
@@ -190,9 +196,9 @@ def score_documents(query):
     tokens = query.tokens
     weights = query.query_weights
     for token in tokens:
-        if token not in DICTIONARY:
+        if token not in DICTIONARY['content']:
             continue
-        postings_lst = get_postings(token).docs
+        postings_lst = get_postings(token, POSTINGS).docs
         docs = postings_lst.keys()
         query_weight = weights[token]
         for docID in docs:
@@ -203,7 +209,7 @@ def score_documents(query):
                 scores[docID] = query_weight * doc_weight
     return sorted(scores.keys(), key=lambda x:x[1])
 
-def evaluate_query(queries , postings_file, relevant_docs, posting_file, N):
+def evaluate_query(queries, relevant_docs, N):
     """
     No need relevant_docs here?? since it is given along with query as a kind of feedback, would be used for query refinement
     """
@@ -220,10 +226,9 @@ def evaluate_query(queries , postings_file, relevant_docs, posting_file, N):
         else:
             docs = score_documents(subquery) # homework 3
         candidate_docs.append(docs)
-
     # 2.2 intersection
     candidate_docs = [set(x) for x in candidate_docs]
-    final_docs = list(set.intersection(*candidate_docs))
+    final_docs = set.intersection(*candidate_docs)
 
     # 2.3 caculate the score
     # for subquery in queries
@@ -235,10 +240,11 @@ def evaluate_query(queries , postings_file, relevant_docs, posting_file, N):
         tokens = subquery.tokens
         weights = subquery.query_weights
         for token in tokens:
-            if token not in DICTIONARY:
+            if token not in DICTIONARY['content']:
                 continue
-            postings_lst = get_postings(token).docs
-            docs = postings_lst.keys()
+            postings_lst = get_postings(token, POSTINGS).docs
+            docs = set(postings_lst.keys())
+            docs = set.intersection(final_docs, docs)
             query_weight = weights[token]
             for docID in docs:
                 doc_weight = postings_lst[docID][0]
