@@ -8,7 +8,6 @@ from nltk.stem.porter import PorterStemmer
 from refine import correct_query, expand_query
 from utils import idf, tf
 
-
 try:
     import cPickle as pickle
 except ImportError:
@@ -23,8 +22,8 @@ os.environ['OPENBLAS_NUM_THREADS'] = '1'
 STEMMER = PorterStemmer()
 DICTIONARY = {}
 POSTINGS = None
+N = 17154
 
-N = 17000 # replace with number of documents in collection
 
 class Query:
 
@@ -35,6 +34,7 @@ class Query:
         self.counts = counts
         self.query_weights = {}
         self.relevant_docs = []
+
         
 class Posting:
     
@@ -42,7 +42,6 @@ class Posting:
         self.term = term
         # doc_id: postions => {1:[tf,[1,3,6]], 5:[tf,[9,19]]}
         self.docs = docs
-    
 
 
 def usage():
@@ -66,6 +65,9 @@ def run_search(dict_file, postings_file, queries_file, results_file):
 
         global POSTINGS
         POSTINGS = postings_files
+        
+        global N
+        N = DICTIONARY[""]
        
         query_str = ""
         relevant_docs = []
@@ -78,17 +80,18 @@ def run_search(dict_file, postings_file, queries_file, results_file):
             else:
                 relevant_docs.append(int(line))
 
-        parsed_queries = parse_query(query_str)  
+        parsed_queries = parse_query(query_str) 
         
-        pseudo_feedback(parsed_queries, DICTIONARY["content"], postings_file, relevant_docs)
+        pseudo_feedback(parsed_queries, DICTIONARY["content"], relevant_docs)
         
         result = []
         # result = evaluate_query(parsed_queries , postings_file, relevant_docs, posting_file, N)
-        result = evaluate_query(parsed_queries, relevant_docs, N)
+        result = evaluate_query(parsed_queries)
         # write result into file
         result = map(str, result)
         result = ' '.join(result)
         fout.write(result)
+
 
 def refine_query(query):
     query = correct_query(query)
@@ -96,12 +99,13 @@ def refine_query(query):
     
     return query
 
+
 def search_two_word_phrase(words):
     result = []
     idx1, idx2 = 0, 0
     # get posting object
-    postings_lst1 = get_postings(words[0], POSTINGS)
-    postings_lst2 = get_postings(words[1], POSTINGS)
+    postings_lst1 = get_postings(words[0])
+    postings_lst2 = get_postings(words[1])
     # get doc IDs in posting list
     docs1 = sorted(postings_lst1.docs.keys())
     docs2 = sorted(postings_lst2.docs.keys())
@@ -130,13 +134,14 @@ def search_two_word_phrase(words):
             idx2 += 1
     return result
 
+
 def search_three_word_phrase(words):
     result = []
     idx1, idx2, idx3 = 0, 0, 0
     # get posting object
-    postings_lst1 = get_postings(words[0], POSTINGS)
-    postings_lst2 = get_postings(words[1], POSTINGS)
-    postings_lst3 = get_postings(words[2], POSTINGS)
+    postings_lst1 = get_postings(words[0])
+    postings_lst2 = get_postings(words[1])
+    postings_lst3 = get_postings(words[2])
     # get doc IDs in posting list
     docs1 = sorted(postings_lst1.docs.keys())
     docs2 = sorted(postings_lst2.docs.keys())
@@ -174,6 +179,7 @@ def search_three_word_phrase(words):
             idx3 += 1
     return result
 
+
 def search_phrase_on_content(query):
     """
     TODO positional search
@@ -187,13 +193,14 @@ def search_phrase_on_content(query):
     words = query.tokens
     num_words = len(words)
     if num_words == 1:
-        postings_lst = get_postings(words[0], POSTINGS)
+        postings_lst = get_postings(words[0])
         return postings_lst.docs.keys()
     elif num_words == 2:
         return search_two_word_phrase(words)
     elif num_words == 3:
         return search_three_word_phrase(words)
     return []
+
 
 def score_documents(query):
     scores = {}
@@ -203,7 +210,7 @@ def score_documents(query):
         if term not in DICTIONARY['content']:
             continue
         # print(token)
-        postings_lst = get_postings(term, POSTINGS).docs
+        postings_lst = get_postings(term).docs
         docs = postings_lst.keys()
         query_weight = weights[term]
         for docID in docs:
@@ -214,7 +221,8 @@ def score_documents(query):
                 scores[docID] = query_weight * doc_weight
     return sorted(scores.keys(), key=lambda x:x[1])
 
-def evaluate_query(queries, relevant_docs, N):
+
+def evaluate_query(queries):
     """
     No need relevant_docs here?? since it is given along with query as a kind of feedback, would be used for query refinement
     """
@@ -224,12 +232,12 @@ def evaluate_query(queries, relevant_docs, N):
     #         docs = SearchPhraseQueryOnContent(query) 
     #     else subquery is free text query
     #         docs = SearchFreeTextQueryOnContent(query) HW3
-    candidate_docs = [] # stores relevant document IDs for free text query and related documents IDs for phrase query
+    candidate_docs = []  # stores relevant document IDs for free text query and related documents IDs for phrase query
     for subquery in queries:
         if subquery.is_phrase:
             docs = search_phrase_on_content(subquery)
         else:
-            docs = score_documents(subquery) # homework 3
+            docs = score_documents(subquery)  # homework 3
         candidate_docs.append(docs)
     # 2.2 intersection
     candidate_docs = [set(x) for x in candidate_docs]
@@ -247,7 +255,7 @@ def evaluate_query(queries, relevant_docs, N):
         for term in terms:
             if term not in DICTIONARY['content']:
                 continue
-            postings_lst = get_postings(term, POSTINGS).docs
+            postings_lst = get_postings(term).docs
             docs = set(postings_lst.keys())
             docs = set.intersection(final_docs, docs)
             query_weight = weights[term]
@@ -300,6 +308,7 @@ def parse_query(query):
     
     return queries
 
+
 def caculate_query_weight(queries):
     for query in queries:
         for token in query.counts.keys():
@@ -321,8 +330,6 @@ def tokenize_query(query):
     # tokenize the query string
     tokens = [word for sent in nltk.sent_tokenize(query)
                        for word in nltk.word_tokenize(sent)]
-    
-    # TODO: remove stop words?
 
     # case folding and stem the tokens
     result = []
@@ -337,7 +344,8 @@ def tokenize_query(query):
 
     return result, count
 
-def pseudo_feedback(query, dictionary, postings_file, relevant_docs):
+
+def pseudo_feedback(query, dictionary, relevant_docs):
     alpha = 0.8
     beta = 0.2
     
@@ -349,8 +357,8 @@ def pseudo_feedback(query, dictionary, postings_file, relevant_docs):
             if term not in dictionary:
                 continue
             
-            doc_vectors[term]=[]
-            postings_list = get_postings(term, postings_file)
+            doc_vectors[term] = []
+            postings_list = get_postings(term)
             # postings = postings_list.docs
             # weights = postings_list.
             for doc_id in postings_list.docs:
@@ -364,10 +372,11 @@ def pseudo_feedback(query, dictionary, postings_file, relevant_docs):
             if term not in dictionary:
                 continue
             subquery.query_weights[term] *= alpha
-            doc_vector = np.linalg.norm(doc_vectors[term])/len(relevant_docs)*beta
+            doc_vector = np.linalg.norm(doc_vectors[term]) / len(relevant_docs) * beta
             subquery.query_weights[term] += doc_vector
 
-def get_postings(token, postings_file):
+
+def get_postings(token):
     """
     Get posting list for given token.
 
@@ -381,12 +390,9 @@ def get_postings(token, postings_file):
     if token not in DICTIONARY['content']:
         return Posting(token, {})
 
-    postings_file.seek(DICTIONARY["content"][token][1])
+    POSTINGS.seek(DICTIONARY["content"][token][1])
 
-    return Posting(token,pickle.load(postings_file))
-
-    
-
+    return Posting(token, pickle.load(POSTINGS))
 
 
 dictionary_file = postings_file = file_of_queries = output_file_of_results = None
