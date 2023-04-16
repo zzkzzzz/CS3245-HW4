@@ -26,6 +26,7 @@ csv.field_size_limit(500 * 1024 * 1024)
 # python index.py -i dataset.csv -d dictionary.txt -p postings.txt
 
 def deal_zone(zone, posidex, doc_id1):
+	doc_id1 = int(doc_id1)
 	# deal with title
 	doc_termFreq = {}   # like: {term: freq}
 	doc_termPositions = {}  # like: {term: [1, 2, 3, 4]}
