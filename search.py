@@ -231,7 +231,7 @@ def evaluate_query(queries, relevant_docs, N):
         candidate_docs.append(docs)
     # 2.2 intersection
     candidate_docs = [set(x) for x in candidate_docs]
-    final_docs = set.intersection(*candidate_docs)
+    final_docs = set.union(*candidate_docs)
 
     # 2.3 caculate the score
     # for subquery in queries
