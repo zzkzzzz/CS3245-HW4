@@ -197,15 +197,15 @@ def search_phrase_on_content(query):
 
 def score_documents(query):
     scores = {}
-    tokens = query.tokens
+    terms = query.counts.keys()
     weights = query.query_weights
-    for token in tokens:
-        if token not in DICTIONARY['content']:
+    for term in terms:
+        if term not in DICTIONARY['content']:
             continue
         # print(token)
-        postings_lst = get_postings(token, POSTINGS).docs
+        postings_lst = get_postings(term, POSTINGS).docs
         docs = postings_lst.keys()
-        query_weight = weights[token]
+        query_weight = weights[term]
         for docID in docs:
             doc_weight = postings_lst[docID][0]
             if docID in scores:
@@ -242,15 +242,15 @@ def evaluate_query(queries, relevant_docs, N):
     #         scores[doc_id] += subquery.query_weight * doc_weight
     scores = {}
     for subquery in queries:
-        tokens = subquery.tokens
+        terms = subquery.counts.keys()
         weights = subquery.query_weights
-        for token in tokens:
-            if token not in DICTIONARY['content']:
+        for term in terms:
+            if term not in DICTIONARY['content']:
                 continue
-            postings_lst = get_postings(token, POSTINGS).docs
+            postings_lst = get_postings(term, POSTINGS).docs
             docs = set(postings_lst.keys())
             docs = set.intersection(final_docs, docs)
-            query_weight = weights[token]
+            query_weight = weights[term]
             for docID in docs:
                 doc_weight = postings_lst[docID][0]
                 if docID in scores:
@@ -292,7 +292,7 @@ def parse_query(query):
             queries.append(Query(subquery[1:-1], tokens, count, True))
         # free text query
         else:
-            # subquery = refine_query(subquery)
+            subquery = refine_query(subquery)
             tokens, count = tokenize_query(subquery)
             queries.append(Query(subquery, tokens, count, False))
             
