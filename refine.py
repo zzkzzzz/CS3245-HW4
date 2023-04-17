@@ -1,12 +1,23 @@
 #!/usr/bin/python3
+import nltk
 from nltk.corpus import wordnet
-from textblob import TextBlob
+from nltk.tokenize import word_tokenize
+
+nltk.download('wordnet')
 
 def correct_query(query):
     corrected_query = []
     for word in query.split():
-        corrected_word = TextBlob(word).correct()
-        corrected_query.append(str(corrected_word))
+        # Check if the word is in WordNet, if not, assume it's misspelled
+        if not wordnet.synsets(word):
+            # Get a list of similar words based on edit distance
+            similar_words = sorted(wordnet.all_lemma_names(), 
+                                   key=lambda w: nltk.edit_distance(word, w))[:3]
+            # Use the most similar word as the correction
+            corrected_word = similar_words[0] if similar_words else word
+        else:
+            corrected_word = word
+        corrected_query.append(corrected_word)
     return ' '.join(corrected_query)
 
 
