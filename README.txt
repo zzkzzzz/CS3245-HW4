@@ -15,20 +15,15 @@ The program consists of two major components, namely the index construction and 
 ----- Index Construction -----
 
 1. Open csv files, store it in a reader.
-
 2. For each file, we divided it into 4 parts (title, content, date, court).
-
 3. We deal with these 4 parts one by one. First we do tokenize, then we remove punctuations and do stemming and case-folding. For each term, we process it and keep updating the positional_index. The structure is : positional_index: term, doc_id: [tf, positions].
-
 4. We have 4 positional index dictionaries (for title, content, date and court).
-
 5. Then we write them into file. Our dictionary has 5 parts: title, content, date, court and document_number.
-
 6. For each part(title, content, date and court), we turn posting list into byte form and store it into a variable. At the same time, we also calculate the offset and length and store it in dictionary.
-
 7. In Content part, because the posting list is too large, we store it every 10000000 length.
+8. Then we write the data into postings.txt and dictionary.txt.
 
-8. Then we write the data into postings.txt and dictionary.txt
+However, in the end, we only use index for content as incorporating information from other zones does not help a lot in our case.
 
 Form:
 
@@ -38,6 +33,9 @@ postings: term: term: (doc_id: (tf, positions)), (doc_id: (tf, positions))....
 
 
 ----- Searching -----
+Our approach for searching is described below, which is our intended approach initially, however, we found
+some of the techniques are not effective and therefore they are commented out in code. But we still describe
+them here for completeness.
 1. Query parsing and refinement
 1.1 We will parse the query into Query objects with information of the query.
 
@@ -58,7 +56,6 @@ in the original query to the query. This helps to broaden the search scope and p
 the relevance of the search results.
 
 1.3 Apply relevance feedback by apply Rocchio to improve the performance of a search engine 
-
 - The function pseudo_feedback applies the Rocchio algorithm to the query to improve its accuracy 
 by using the relevant documents. The Rocchio algorithm involves multiplying the original query vector 
 by a constant alpha, adding a vector composed of the average of the relevant documents' vectors weighted 
@@ -71,14 +68,30 @@ vector is normalized by the number of relevant documents and weighted by beta. T
 is then added to the original query vector to produce the new query vector. Finally, the resulting 
 query vector is returned.
 
-(However, in the final version, we disable query word correction and query expansion as the performance does not incease)
+- One optimization we have done is avoid getting the full relevant document vectors, instead, as long as we
+accumulate more than 7000 terms from these relevant documents, we stop the process and use these terms
+to modify our query. This reduces the query time while gives reasonably good performance, one can refer to
+our results for sample queries in result_q1.txt, result_q2.txt, result_q3.txt, it can be seen that the given
+relevant documents are given reasonably high ranks and sometimes ranked before all other documents.
+
+In the submitted version, we disable query word correction, query expansion, and pseudo_feedback as 
+the performance does not incease signficantly.
 
 2. Query evaluation
+To evaluate the query, we have two major steps. First we retrieve candidate documents
+and then rank the documents by treating the whole query as a free text query.
+- Iterate through all query objects. If the query object represents a phrasal query, use the
+positional index to retrieve IDs of document that contains the phrase. Otherwise, process
+the query as a free text query and retreive all documents with non-zero scores, and we
+do not sort them yet at this step. For free text query object, we union the retrieved docIDs,
+and for phrasal query object, we intersect the retrieved docID to preserve the relevance.
+In the end, we union the two set of docIDs mentioned above.
+- Treat the whole query as a free text query and score the set of documents obtained from previous step
+using unique terms in the query. For example, if the original query is "a b" AND c d, then at this step we 
+treat it as a b c d.
 
 3. Write the result to result file.
-
-
-
+Finally, the docIDs sorted by scores in descending order are written to file.
 
 
 == Files included with this submission ==

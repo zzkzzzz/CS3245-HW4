@@ -31,6 +31,7 @@ def deal_zone(zone, posidex, doc_id1):
 	doc_termFreq = {}   # like: {term: freq}
 	doc_termPositions = {}  # like: {term: [1, 2, 3, 4]}
 	posi_index = posidex.copy()
+	# count = 0
 	for posi, term in enumerate(zone):
 		if term not in doc_termFreq:
 			doc_termFreq[term] = 1
@@ -38,6 +39,7 @@ def deal_zone(zone, posidex, doc_id1):
 		else:
 			doc_termFreq[term] = doc_termFreq[term] + 1
 			doc_termPositions[term].append(posi)
+		# count += 1
 	# log tf
 	for term, tf in doc_termFreq.items():
 		doc_termFreq[term] = logg_tf(tf)
@@ -52,8 +54,8 @@ def deal_zone(zone, posidex, doc_id1):
 			posi_index[term] = {doc_id1: [log_tf/sum, doc_termPositions[term]]}
 		else:
 			posi_index[term][doc_id1] = [log_tf/sum, doc_termPositions[term]]
-			
-	return posi_index
+	return posi_index		
+	# return posi_index, count
 
 			
 def usage():
@@ -98,7 +100,7 @@ def build_index(in_csv, out_dict, out_postings):
 	with open(in_csv, newline='') as f:
 		reader = csv.reader(f, dialect='excel')
 		doc_num = 0
-		
+		lengths = 0
 		for i in reader:
 			doc_num += 1
 			if i[0] == 'document_id':
@@ -109,12 +111,15 @@ def build_index(in_csv, out_dict, out_postings):
 			
 			positional_index['title'] = deal_zone(title, positional_index['title'], doc_id)
 			positional_index['content'] = deal_zone(content, positional_index['content'], doc_id)
+			# positional_index['content'], length = deal_zone(content, positional_index['content'], doc_id)
 			positional_index['date'] = deal_zone(date, positional_index['date'], doc_id)
 			positional_index['court'] = deal_zone(court, positional_index['court'], doc_id)
 			
 			if doc_num % 100 == 1:
 				print('Time taken till now: ' + str(time.process_time() - start) + 's')
 				print(doc_num)
+			lengths += length
+		# print("average_doc_length is " + str(lengths/17154))
 				
 	print('writing to file....')
 	dictionary = {}

@@ -3,10 +3,10 @@ import os
 import nltk
 import sys
 import getopt
+import time
 import numpy as np
 from nltk.stem.porter import PorterStemmer
-# from refine import correct_query, expand_query
-from refine import expand_query
+from refine import correct_query, expand_query
 from utils import idf, tf
 
 try:
@@ -55,6 +55,7 @@ def run_search(dict_file, postings_file, queries_file, results_file):
     perform searching on the given queries file and output the results to a file
     """
     print('running search on the queries...')
+    start = time.process_time()
     
     with open(queries_file, 'r') as fin, \
         open(results_file, 'w') as fout, \
@@ -83,7 +84,7 @@ def run_search(dict_file, postings_file, queries_file, results_file):
 
         parsed_queries = parse_query(query_str) 
         
-        # pseudo_feedback(parsed_queries, DICTIONARY["content"], relevant_docs)
+        pseudo_feedback(parsed_queries, DICTIONARY["content"], relevant_docs)
         
         result = []
         # result = evaluate_query(parsed_queries , postings_file, relevant_docs, posting_file, N)
@@ -92,13 +93,13 @@ def run_search(dict_file, postings_file, queries_file, results_file):
         result = map(str, result)
         result = ' '.join(result)
         fout.write(result)
+    print('finished in ' + str(time.process_time()-start) + ' seconds')
 
 
 def refine_query(query):
     # Its very slow on processing the query
     # query = correct_query(query)
     # query = expand_query(query)
-    query = expand_query(query)
     
     return query
 
@@ -184,15 +185,6 @@ def search_three_word_phrase(words):
 
 
 def search_phrase_on_content(query):
-    """
-    TODO positional search
-    self.query = query
-    self.is_phrase = is_phrase
-    self.tokens = tokens
-    self.counts = counts
-    self.query_weights = 0
-    self.relevant_docs = []
-    """
     words = query.tokens
     num_words = len(words)
     if num_words == 1:
@@ -229,15 +221,7 @@ def score_documents(query):
 
 
 def evaluate_query(queries):
-    """
-    No need relevant_docs here?? since it is given along with query as a kind of feedback, would be used for query refinement
-    """
-    # 2.1 get all relevant documents for each subquery
-    # for subquery in queries
-    #     if subquery is phrase query
-    #         docs = SearchPhraseQueryOnContent(query) 
-    #     else subquery is free text query
-    #         docs = SearchFreeTextQueryOnContent(query) HW3
+    # get all potential relevant documents for each subquery
     free_text_docs = []  # stores relevant document IDs for free text query and related documents IDs for phrase query
     phrasal_docs = []
     for subquery in queries:
@@ -258,11 +242,7 @@ def evaluate_query(queries):
         final_docs_2 = set.intersection(*phrasal_docs)
     final_docs = final_docs_1.union(final_docs_2)
 
-    # 2.3 caculate the score
-    # for subquery in queries
-    #     for each token t in subquery
-    #         doc_weight = posting_list[t].tf
-    #         scores[doc_id] += subquery.query_weight * doc_weight
+    # caculate final score
     scores = {}
     for subquery in queries:
         terms = subquery.counts.keys()
@@ -271,27 +251,18 @@ def evaluate_query(queries):
             if term not in DICTIONARY['content']:
                 continue
             postings_lst = get_postings(term).docs
+            docs = postings_lst.keys()
             docs = set(postings_lst.keys())
             docs = set.intersection(final_docs, docs)
             query_weight = weights[term]
             for docID in docs:
                 doc_weight = postings_lst[docID][0]
-                # if doc_weight == 0 or query_weight == 0:
-                #     continue
                 if docID in scores:
                     scores[docID] += query_weight * doc_weight
                 else:
                     scores[docID] = query_weight * doc_weight
-    # normalize
-    """
-    Don't need the normalize step? already calcuated when constructing posting list?
-    """
-    # for doc_id in scores:
-    #     scores[doc_id] = scores[doc_id]/LENGTH[str(doc_id)]
 
-    # 2.4 rank
-    # sort doc id by scores
-    # print(sorted(scores.items(), key=lambda x:x[1], reverse=True))
+    # rank
     return sorted(scores, key=scores.get, reverse=True)
     
     
@@ -317,7 +288,7 @@ def parse_query(query):
             queries.append(Query(subquery[1:-1], tokens, count, True))
         # free text query
         else:
-            subquery = refine_query(subquery)
+            # subquery = refine_query(subquery)
             tokens, count = tokenize_query(subquery)
             queries.append(Query(subquery, tokens, count, False))
             
@@ -366,31 +337,60 @@ def pseudo_feedback(query, dictionary, relevant_docs):
     alpha = 1
     beta = 0.2
     
-    for subquery in query:
-        terms = subquery.counts
-        doc_vectors = {}
-        # get the doc vectors
-        for term in terms:
-            if term not in dictionary:
+    relevant_term_weight = {}
+    start = time.process_time()
+    terms = dictionary.keys()
+    count = 0
+    for term in terms:
+        if count > 7000: # average doc length is 7000, once collect 7000 terms in relevent docs we stop
+            break
+        postings = get_postings(term).docs
+        docs = postings.keys()
+        for doc in docs: # loop all docs where the term appears
+            if doc in relevant_docs: # check if relevant doc inside
+                if term not in relevant_term_weight:
+                    relevant_term_weight[term] = postings[doc][0] * idf(N, DICTIONARY["content"][term][0])
+                    count += 1
+                else:
+                    relevant_term_weight[term] += postings[doc][0] * idf(N, DICTIONARY["content"][term][0])
+            else:
                 continue
+    
+    
+    for term in relevant_term_weight.keys():
+        for subquery in query:
+            if term not in subquery.query_weights.keys():
+                subquery.query_weights[term] = beta * relevant_term_weight[term]/len(relevant_docs)
+                subquery.counts[term] = 1
+            else:
+                subquery.query_weights[term] = alpha * subquery.query_weights[term] + beta * relevant_term_weight[term]/len(relevant_docs)
+                subquery.counts[term] += 1
+    print('relevance feedback done in ' + str(time.process_time()-start) + ' seconds')
+    # for subquery in query:
+        # terms = subquery.counts
+        # doc_vectors = {}
+        # # get the doc vectors
+        # for term in terms:
+        #     if term not in dictionary:
+        #         continue
             
-            doc_vectors[term] = []
-            postings_list = get_postings(term)
-            # postings = postings_list.docs
-            # weights = postings_list.
-            for doc_id in postings_list.docs:
-                if int(doc_id) not in relevant_docs:
-                    continue
-                doc_weight = postings_list.docs[doc_id][0]
-                doc_vectors[term].append(doc_weight)
+        #     doc_vectors[term] = []
+        #     postings_list = get_postings(term)
+        #     # postings = postings_list.docs
+        #     # weights = postings_list.
+        #     for doc_id in postings_list.docs:
+        #         if int(doc_id) not in relevant_docs:
+        #             continue
+        #         doc_weight = postings_list.docs[doc_id][0]
+        #         doc_vectors[term].append(doc_weight)
 
-        # applay rocchio algorithm
-        for term in terms:
-            if term not in dictionary:
-                continue
-            subquery.query_weights[term] *= alpha
-            doc_vector = np.linalg.norm(doc_vectors[term]) / len(relevant_docs) * beta
-            subquery.query_weights[term] += doc_vector
+        # # applay rocchio algorithm
+        # for term in terms:
+        #     if term not in dictionary:
+        #         continue
+        #     subquery.query_weights[term] *= alpha
+        #     doc_vector = np.linalg.norm(doc_vectors[term]) / len(relevant_docs) * beta
+        #     subquery.query_weights[term] += doc_vector
 
 
 def get_postings(token):

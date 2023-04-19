@@ -5,6 +5,7 @@ from nltk.tokenize import word_tokenize
 # from textblob import TextBlob
 nltk.download('wordnet')
 
+# Correct query using textblob
 # def correct_query(query):
 #     corrected_query = []
 #     for word in query.split():
@@ -12,6 +13,7 @@ nltk.download('wordnet')
 #         corrected_query.append(str(corrected_word))
 #     return ' '.join(corrected_query)
 
+# Correct query using
 def correct_query(query):
     corrected_query = []
     for word in query.split():
