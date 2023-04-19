@@ -2,8 +2,15 @@
 import nltk
 from nltk.corpus import wordnet
 from nltk.tokenize import word_tokenize
-
+# from textblob import TextBlob
 nltk.download('wordnet')
+
+# def correct_query(query):
+#     corrected_query = []
+#     for word in query.split():
+#         corrected_word = TextBlob(word).correct()
+#         corrected_query.append(str(corrected_word))
+#     return ' '.join(corrected_query)
 
 def correct_query(query):
     corrected_query = []

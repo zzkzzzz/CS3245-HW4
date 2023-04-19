@@ -5,7 +5,8 @@ import sys
 import getopt
 import numpy as np
 from nltk.stem.porter import PorterStemmer
-from refine import correct_query, expand_query
+# from refine import correct_query, expand_query
+from refine import expand_query
 from utils import idf, tf
 
 try:
@@ -82,7 +83,7 @@ def run_search(dict_file, postings_file, queries_file, results_file):
 
         parsed_queries = parse_query(query_str) 
         
-        pseudo_feedback(parsed_queries, DICTIONARY["content"], relevant_docs)
+        # pseudo_feedback(parsed_queries, DICTIONARY["content"], relevant_docs)
         
         result = []
         # result = evaluate_query(parsed_queries , postings_file, relevant_docs, posting_file, N)
@@ -96,6 +97,7 @@ def run_search(dict_file, postings_file, queries_file, results_file):
 def refine_query(query):
     # Its very slow on processing the query
     # query = correct_query(query)
+    # query = expand_query(query)
     query = expand_query(query)
     
     return query
@@ -216,11 +218,14 @@ def score_documents(query):
         query_weight = weights[term]
         for docID in docs:
             doc_weight = postings_lst[docID][0]
+            # if doc_weight == 0 or query_weight == 0:
+            #     continue
             if docID in scores:
                 scores[docID] += query_weight * doc_weight
             else:
                 scores[docID] = query_weight * doc_weight
-    return sorted(scores.keys(), key=lambda x:x[1])
+    # return sorted(scores, key=scores.get, reverse=True)
+    return scores.keys()
 
 
 def evaluate_query(queries):
@@ -233,16 +238,25 @@ def evaluate_query(queries):
     #         docs = SearchPhraseQueryOnContent(query) 
     #     else subquery is free text query
     #         docs = SearchFreeTextQueryOnContent(query) HW3
-    candidate_docs = []  # stores relevant document IDs for free text query and related documents IDs for phrase query
+    free_text_docs = []  # stores relevant document IDs for free text query and related documents IDs for phrase query
+    phrasal_docs = []
     for subquery in queries:
         if subquery.is_phrase:
             docs = search_phrase_on_content(subquery)
+            phrasal_docs.append(docs)
         else:
             docs = score_documents(subquery)  # homework 3
-        candidate_docs.append(docs)
+            free_text_docs.append(docs)
     # 2.2 intersection
-    candidate_docs = [set(x) for x in candidate_docs]
-    final_docs = set.union(*candidate_docs)
+    final_docs_1 = set()
+    final_docs_2 = set()
+    if len(free_text_docs) > 0:
+        free_text_docs = [set(x) for x in free_text_docs]
+        final_docs_1 = set().union(*free_text_docs)
+    if len(phrasal_docs) > 0:
+        phrasal_docs = [set(x) for x in phrasal_docs]
+        final_docs_2 = set.intersection(*phrasal_docs)
+    final_docs = final_docs_1.union(final_docs_2)
 
     # 2.3 caculate the score
     # for subquery in queries
@@ -262,6 +276,8 @@ def evaluate_query(queries):
             query_weight = weights[term]
             for docID in docs:
                 doc_weight = postings_lst[docID][0]
+                # if doc_weight == 0 or query_weight == 0:
+                #     continue
                 if docID in scores:
                     scores[docID] += query_weight * doc_weight
                 else:
@@ -347,7 +363,7 @@ def tokenize_query(query):
 
 
 def pseudo_feedback(query, dictionary, relevant_docs):
-    alpha = 0.8
+    alpha = 1
     beta = 0.2
     
     for subquery in query:
