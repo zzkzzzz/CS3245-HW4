@@ -1,13 +1,13 @@
 #!/usr/bin/python3
 from nltk.corpus import wordnet
-from textblob import TextBlob
+# from textblob import TextBlob
 
-def correct_query(query):
-    corrected_query = []
-    for word in query.split():
-        corrected_word = TextBlob(word).correct()
-        corrected_query.append(str(corrected_word))
-    return ' '.join(corrected_query)
+# def correct_query(query):
+#     corrected_query = []
+#     for word in query.split():
+#         corrected_word = TextBlob(word).correct()
+#         corrected_query.append(str(corrected_word))
+#     return ' '.join(corrected_query)
 
 
 def expand_query(query, num_words=2):

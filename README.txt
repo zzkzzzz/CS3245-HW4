@@ -17,9 +17,9 @@ The program consists of two major components, namely the index construction and 
 
 ----- Searching -----
 1. Query parsing and refinement
-1.1 We will parse the query into Query objects which information of the query.
+1.1 We will parse the query into Query objects with information of the query.
 
-- For a boolean query, they will be parsed into several Query objects.
+- For a boolean query, it will be split by the AND keyword and be parsed into several Query objects
 - The parse_query function takes in a string query as input and returns a list of Query objects. 
 It first splits the string into subqueries using the AND operator. For each subquery, it checks if 
 it is a phrase query (enclosed in double quotes), and if so, tokenizes the query without any query expansion. 
@@ -43,12 +43,13 @@ by a constant alpha, adding a vector composed of the average of the relevant doc
 by a constant beta.
 
 - In our implementation, the algorithm is applied to each subquery in the given query. For each 
-subquery, the relevant document  vectors are obtained from the postings file and used to calculate 
+subquery, the relevant document vectors are obtained from the postings file and used to calculate 
 the new query vector. The original query vector is  multiplied by alpha, and the relevant document 
 vector is normalized by the number of relevant documents and weighted by beta. The resulting vector 
 is then added to the original query vector to produce the new query vector. Finally, the resulting 
 query vector is returned.
 
+(However, in the final version, we disable query word correction and query expansion as the performance does not incease)
 
 2. Query evaluation
 
