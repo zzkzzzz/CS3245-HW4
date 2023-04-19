@@ -95,8 +95,10 @@ def run_search(dict_file, postings_file, queries_file, results_file):
 
 
 def refine_query(query):
+    # Its very slow on processing the query
     # query = correct_query(query)
     # query = expand_query(query)
+    query = expand_query(query)
     
     return query
 

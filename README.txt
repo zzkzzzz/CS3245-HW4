@@ -1,5 +1,5 @@
-This is the README file for A0220882H-A0220910X-??????-??????'s submission
-Emails: e0556074@u.nus.edu, e0556102@u.nus.edu
+This is the README file for A0220882H-A0220910X-A0267777E-??????'s submission
+Emails: e0556074@u.nus.edu, e0556102@u.nus.edu, e1100297@u.nus.edu
 
 == Python Version ==
 
@@ -13,6 +13,28 @@ are usually sufficient.
 
 The program consists of two major components, namely the index construction and searching.
 ----- Index Construction -----
+
+1. Open csv files, store it in a reader.
+
+2. For each file, we divided it into 4 parts (title, content, date, court).
+
+3. We deal with these 4 parts one by one. First we do tokenize, then we remove punctuations and do stemming and case-folding. For each term, we process it and keep updating the positional_index. The structure is : positional_index: term, doc_id: [tf, positions].
+
+4. We have 4 positional index dictionaries (for title, content, date and court).
+
+5. Then we write them into file. Our dictionary has 5 parts: title, content, date, court and document_number.
+
+6. For each part(title, content, date and court), we turn posting list into byte form and store it into a variable. At the same time, we also calculate the offset and length and store it in dictionary.
+
+7. In Content part, because the posting list is too large, we store it every 10000000 length.
+
+8. Then we write the data into postings.txt and dictionary.txt
+
+Form:
+
+dictionary: term: (length of posting, offset)
+
+postings: term: term: (doc_id: (tf, positions)), (doc_id: (tf, positions))....
 
 
 ----- Searching -----
