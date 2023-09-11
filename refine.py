@@ -55,9 +55,7 @@ def get_top_words(synsets, num_words=3):
         else:
             word_counts[word] = 1
     sorted_words = sorted(word_counts.items(), key=lambda x: x[1], reverse=True)
-    top_words = [word for word, count in sorted_words][:num_words]
-    
-    return top_words
+    return [word for word, count in sorted_words][:num_words]
 
 
 

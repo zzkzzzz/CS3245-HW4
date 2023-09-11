@@ -2,9 +2,7 @@
 import math
     
 def tf(term_frequency):
-    if term_frequency == 0:
-        return 0
-    return float(1 + math.log(term_frequency, 10))
+    return 0 if term_frequency == 0 else float(1 + math.log(term_frequency, 10))
 
 
 def idf(N, doc_frequency):

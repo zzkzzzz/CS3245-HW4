@@ -46,7 +46,9 @@ class Posting:
 
 
 def usage():
-    print("usage: " + sys.argv[0] + " -d dictionary-file -p postings-file -q file-of-queries -o output-file-of-results")
+    print(
+        f"usage: {sys.argv[0]} -d dictionary-file -p postings-file -q file-of-queries -o output-file-of-results"
+    )
 
 
 def run_search(dict_file, postings_file, queries_file, results_file):
@@ -56,24 +58,24 @@ def run_search(dict_file, postings_file, queries_file, results_file):
     """
     print('running search on the queries...')
     start = time.process_time()
-    
+
     with open(queries_file, 'r') as fin, \
         open(results_file, 'w') as fout, \
         open(dict_file, mode="rb") as dictionary_file, \
         open(postings_file, mode="rb") as postings_files:
-            
+
         global DICTIONARY
         DICTIONARY = pickle.load(dictionary_file)
 
         global POSTINGS
         POSTINGS = postings_files
-        
+
         global N
         N = DICTIONARY[""]
-       
+
         query_str = ""
         relevant_docs = []
-        
+
         first_line = True
         for line in fin:
             if first_line:
@@ -83,9 +85,9 @@ def run_search(dict_file, postings_file, queries_file, results_file):
                 relevant_docs.append(int(line))
 
         parsed_queries = parse_query(query_str) 
-        
+
         pseudo_feedback(parsed_queries, DICTIONARY["content"], relevant_docs)
-        
+
         result = []
         # result = evaluate_query(parsed_queries , postings_file, relevant_docs, posting_file, N)
         result = evaluate_query(parsed_queries)
@@ -93,7 +95,7 @@ def run_search(dict_file, postings_file, queries_file, results_file):
         result = map(str, result)
         result = ' '.join(result)
         fout.write(result)
-    print('finished in ' + str(time.process_time()-start) + ' seconds')
+    print(f'finished in {str(time.process_time() - start)} seconds')
 
 
 def refine_query(query):
@@ -153,7 +155,7 @@ def search_three_word_phrase(words):
 
     while idx1 < len(docs1) and idx2 < len(docs2) and idx3 < len(docs3):
         # all 3 words appearing in the same doc
-        if docs1[idx1] == docs2[idx2] and docs2[idx2] == docs3[idx3]:
+        if docs1[idx1] == docs2[idx2] == docs3[idx3]:
             # check if the 3 words appears consecutively
             pos1 = postings_lst1.docs[docs1[idx1]][1]
             pos2 = postings_lst2.docs[docs2[idx2]][1]
@@ -171,8 +173,7 @@ def search_three_word_phrase(words):
                     # if both 1st and 2nd position is before 3rd position
                     k += 1
                 else:
-                    i += 1 
-            pass
+                    i += 1
         elif docs1[idx1] <= docs2[idx2] and docs1[idx1] <= docs3[idx3]:
             # docID1 <= docID 2 and docID1 <= docID 3
             idx1 += 1
@@ -234,10 +235,10 @@ def evaluate_query(queries):
     # 2.2 intersection
     final_docs_1 = set()
     final_docs_2 = set()
-    if len(free_text_docs) > 0:
+    if free_text_docs:
         free_text_docs = [set(x) for x in free_text_docs]
         final_docs_1 = set().union(*free_text_docs)
-    if len(phrasal_docs) > 0:
+    if phrasal_docs:
         phrasal_docs = [set(x) for x in phrasal_docs]
         final_docs_2 = set.intersection(*phrasal_docs)
     final_docs = final_docs_1.union(final_docs_2)
@@ -325,18 +326,14 @@ def tokenize_query(query):
     for token in tokens:
         new_token = STEMMER.stem(token.lower())
         result.append(new_token)
-        if new_token in count:
-            count[new_token] = count[new_token] + 1
-        else:
-            count[new_token] = 1
-
+        count[new_token] = count[new_token] + 1 if new_token in count else 1
     return result, count
 
 
 def pseudo_feedback(query, dictionary, relevant_docs):
     alpha = 1
     beta = 0.2
-    
+
     relevant_term_weight = {}
     start = time.process_time()
     terms = dictionary.keys()
@@ -347,17 +344,16 @@ def pseudo_feedback(query, dictionary, relevant_docs):
         postings = get_postings(term).docs
         docs = postings.keys()
         for doc in docs: # loop all docs where the term appears
-            if doc in relevant_docs: # check if relevant doc inside
-                if term not in relevant_term_weight:
-                    relevant_term_weight[term] = postings[doc][0] * idf(N, DICTIONARY["content"][term][0])
-                    count += 1
-                else:
-                    relevant_term_weight[term] += postings[doc][0] * idf(N, DICTIONARY["content"][term][0])
-            else:
+            if doc not in relevant_docs:
                 continue
-    
-    
-    for term in relevant_term_weight.keys():
+
+
+            if term not in relevant_term_weight:
+                relevant_term_weight[term] = postings[doc][0] * idf(N, DICTIONARY["content"][term][0])
+                count += 1
+            else:
+                relevant_term_weight[term] += postings[doc][0] * idf(N, DICTIONARY["content"][term][0])
+    for term in relevant_term_weight:
         for subquery in query:
             if term not in subquery.query_weights.keys():
                 subquery.query_weights[term] = beta * relevant_term_weight[term]/len(relevant_docs)
@@ -365,7 +361,7 @@ def pseudo_feedback(query, dictionary, relevant_docs):
             else:
                 subquery.query_weights[term] = alpha * subquery.query_weights[term] + beta * relevant_term_weight[term]/len(relevant_docs)
                 subquery.counts[term] += 1
-    print('relevance feedback done in ' + str(time.process_time()-start) + ' seconds')
+    print(f'relevance feedback done in {str(time.process_time() - start)} seconds')
     # for subquery in query:
         # terms = subquery.counts
         # doc_vectors = {}
@@ -432,7 +428,12 @@ for o, a in opts:
     else:
         assert False, "unhandled option"
 
-if dictionary_file == None or postings_file == None or file_of_queries == None or file_of_output == None:
+if (
+    dictionary_file is None
+    or postings_file is None
+    or file_of_queries is None
+    or file_of_output is None
+):
     usage()
     sys.exit(2)
 
